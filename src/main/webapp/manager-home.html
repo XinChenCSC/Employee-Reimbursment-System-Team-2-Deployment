@@ -172,6 +172,7 @@
             $.ajax({
                 url: `http://${hostname}:8080/employee-servlet-app/find-requests-mgnr`,
                 method: 'post',
+                async: true,
                 success: function (data) {
 
                     table = $('#request-table').DataTable({
@@ -239,6 +240,7 @@
                 $.ajax({
                     url: `http://${hostname}:8080/employee-servlet-app/find-pending-requests-mgnr`,
                     method: 'post',
+                    async: true,
                     success: function (data) {
 
                         table = $('#request-table').DataTable({
@@ -306,6 +308,7 @@
                 $.ajax({
                     url: `http://${hostname}:8080/employee-servlet-app/find-resolved-requests-mgnr`,
                     method: 'post',
+                    async: true,
                     success: function (data) {
 
                         table = $('#request-table').DataTable({
@@ -377,6 +380,7 @@
                 $.ajax({
                     url: `http://${hostname}:8080/employee-servlet-app/find-all-emp-mgnr`,
                     method: 'post',
+                    async: true,
                     success: function (data) {
 
                         table = $('#all-emp').DataTable({
