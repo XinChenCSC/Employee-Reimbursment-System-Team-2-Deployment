@@ -1,4 +1,4 @@
-const url = "http://" + window.location.hostname + ":8080/employee-servlet-app/";
+const url = "http://" + window.location.hostname + "/employee-servlet-app/";
 const backdrop = document.getElementById('backdrop');
 //requests
 const submitRequestButton = document.getElementById('submit-request');
