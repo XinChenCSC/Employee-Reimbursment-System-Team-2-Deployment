@@ -1,7 +1,7 @@
 var script = document.createElement('script');
 script.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
 document.getElementsByTagName('head')[0].appendChild(script);
-const url = "http://" + window.location.hostname + ":8080/employee-servlet-app/";
+const url = "http://" + window.location.hostname + "/employee-servlet-app/";
 const backdrop = document.getElementById('backdrop');
 
 // Approve/Deny buttom
@@ -184,7 +184,7 @@ function fetchUser() {
 
     // the following request will work for testing on localhost
     
-    fetch(`http://${hostname}:8080/employee-servlet-app/get-user`)
+    fetch(`http://${hostname}/employee-servlet-app/get-user`)
     // this is changed because the port will be inferred when deployed on Elastic beanstalk
     .then(response => response.json()) // trakes a json string and transforms
                                         // it to a javaScript object
