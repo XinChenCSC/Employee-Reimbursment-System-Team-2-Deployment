@@ -5,7 +5,7 @@ function register() {
     message.innerHTML = ''
     let input = document.querySelectorAll('input')
     if(inputIsValid(input)) {
-        fetch("http://" + window.location.hostname + ":8080/employee-servlet-app/register", {
+        fetch("http://" + window.location.hostname + "/employee-servlet-app/register", {
             method: 'POST',
             body: JSON.stringify({
                 firstName: input[0].value,
@@ -19,7 +19,7 @@ function register() {
             },
         }).then(r => {
             if (r.status >= 200 && r.status < 300) {
-                location.href = "http://localhost:8080/employee-servlet-app/welcome.html"
+                location.href = "http://localhost/employee-servlet-app/welcome.html"
             } else {
                 message.innerHTML = "registration failed";
             }
