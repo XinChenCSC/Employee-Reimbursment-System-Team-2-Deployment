@@ -32,10 +32,13 @@ import com.revature.models.Reimbursement;
 import com.revature.service.EmployeeService;
 import com.revature.service.ManagerService;
 import com.revature.service.ReimbursementService;
+import com.revature.util.PassBasedEnc;
 
 public class RequestHelper {
 
-	// employeeservice
+	 private static String saltvalue = PassBasedEnc.getSaltvalue(30); 
+	
+
 	private static EmployeeService eserv = new EmployeeService(new EmployeeDao());
 	private static ReimbursementService rserv = new ReimbursementService(new ReimbursementDao());
 	private static ManagerService mserv = new ManagerService(new EmployeeDao(), new ReimbursementDao());
@@ -64,29 +67,43 @@ public class RequestHelper {
 	 * Who will provide the method with the HttpRequest? The UI We need to build an
 	 * html doc with a form that will send these prameters to the method
 	 */
-	public static void processRegistration(HttpServletRequest request, HttpServletResponse response)
-			throws IOException, ServletException {
-		String firstname = request.getParameter("firstname");
-		String lastname = request.getParameter("lastname");
-		String username = request.getParameter("username");
-		String password = request.getParameter("password");
 
-		String email = request.getParameter("email");
+	public static void processRegistration(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+		setResponseJSON(response);
+
+		System.out.println("in the processRegistration method within request helper");
+
+		JsonParser jsonParser = new JsonParser();
+		// parse the payload of the HTTP request
+		JsonElement root = jsonParser.parse(new InputStreamReader((InputStream) request.getInputStream()));
+		// Transform payload string to json object
+		JsonObject rootobj = root.getAsJsonObject();
+
+		System.out.println(rootobj);
+
+		String firstname = rootobj.get("firstName").getAsString();
+		String lastname = rootobj.get("lastName").getAsString();
+		String username = rootobj.get("username").getAsString();
+		String password = rootobj.get("password").getAsString();
+
+		String email = rootobj.get("email").getAsString();
 		Employee e = new Employee(firstname, lastname, username, password, email, Role.Employee);
 
 		int pk = eserv.register(e);
 
 		if (pk > 0) {
-
+			e.setId(pk);
 			HttpSession session = request.getSession();
 			session.setAttribute(currentUser, e);
-			request.getRequestDispatcher("welcome.html").forward(request, response);
-		} else {
+			response.setContentType("text/plain"); 
+			response.setCharacterEncoding("UTF-8"); 
+			response.getWriter().write("success");
+		} else { 
 
-			PrintWriter out = response.getWriter();
-			response.setContentType(htmlPage);
-			out.println("<h1>Registration failed. User already exists</h1>");
-			out.println("<a href=\"index.html\">Back</a>");
+			response.setContentType("text/plain"); 
+			response.setCharacterEncoding("UTF-8"); 
+			response.getWriter().write("fiailed");
+
 		}
 
 	}
@@ -170,7 +187,8 @@ public class RequestHelper {
 		String description = rootobj.get("description").getAsString();
 		ReimbType type = null;
 		System.out.println(typeString);
-
+		
+		//get current users id
 		HttpSession session = request.getSession();
 		Employee user = (Employee) session.getAttribute(currentUser);
 		int authorId = user.getId();
@@ -182,6 +200,7 @@ public class RequestHelper {
 			type = ReimbType.Supplies;
 		}
 
+		// instanciate a new request
 		Reimbursement newRequest = new Reimbursement(amount, description, authorId, type);
 
 		// persist the new request
@@ -194,6 +213,7 @@ public class RequestHelper {
 			pw.write(json);
 		} else {
 			String json = gson.toJson(new Reimbursement());
+			pw.write(json);
 		}
 
 	}
@@ -221,11 +241,7 @@ public class RequestHelper {
 			} else {
 				tempReimb.setDateSubmitted(notApplicable);
 			}
-			if (r.getDate_resolved() != null) {
-				tempReimb.setDateResolved(dateFormatter.format(r.getDate_resolved()));
-			} else {
-				tempReimb.setDateResolved(notApplicable);
-			}
+
 			tempReimb.setDescription(r.getDescription());
 			tempReimb.setAuthorUsername(employees.stream().filter(e -> e.getId() == r.getAuthorId())
 					.map(Employee::getUsername).collect(Collectors.toList()).get(0));
@@ -235,13 +251,17 @@ public class RequestHelper {
 			} else {
 				tempReimb.setResolverUsername(notApplicable);
 			}
+			if (r.getDate_resolved() != null && !tempReimb.getResolverUsername().equals(notApplicable)) {
+				tempReimb.setDateResolved(dateFormatter.format(r.getDate_resolved()));
+			} else {
+				tempReimb.setDateResolved(notApplicable);
+			}
 			tempReimb.setStatus(r.getStatus());
 			tempReimb.setType(r.getType());
 
 			reimbs.add(tempReimb);
 
 		}
-		System.out.println(reimbs.get(0));
 		String jsonString = om.writeValueAsString(reimbs);
 		PrintWriter out = response.getWriter();
 		out.write(jsonString);
@@ -298,7 +318,6 @@ public class RequestHelper {
 		try {
 			session.invalidate();
 		} catch (IllegalStateException e) {
-			e.printStackTrace();
 		} finally {
 			request.getRequestDispatcher("index.html").forward(request, response);
 		}
@@ -371,11 +390,7 @@ public class RequestHelper {
 			} else {
 				tempReimb.setDateSubmitted(notApplicable);
 			}
-			if (r.getDate_resolved() != null) {
-				tempReimb.setDateResolved(dateFormatter.format(r.getDate_resolved()));
-			} else {
-				tempReimb.setDateResolved(notApplicable);
-			}
+
 			tempReimb.setDescription(r.getDescription());
 			if(employees.stream().filter(e -> e.getId() == r.getAuthorId()).findFirst().isPresent()) {
 				tempReimb.setAuthorUsername(employees.stream().filter(e -> e.getId() == r.getAuthorId())
@@ -388,6 +403,11 @@ public class RequestHelper {
 						.map(Employee::getUsername).collect(Collectors.toList()).get(0));
 			} else {
 				tempReimb.setResolverUsername(notApplicable);
+			}
+			if (r.getDate_resolved() != null && !tempReimb.getResolverUsername().equals(notApplicable)) {
+				tempReimb.setDateResolved(dateFormatter.format(r.getDate_resolved()));
+			} else {
+				tempReimb.setDateResolved(notApplicable);
 			}
 			tempReimb.setStatus(r.getStatus());
 			tempReimb.setType(r.getType());
