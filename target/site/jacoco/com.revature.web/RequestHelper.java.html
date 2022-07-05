@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RequestHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-servlet-app</a> &gt; <a href="index.source.html" class="el_package">com.revature.web</a> &gt; <span class="el_source">RequestHelper.java</span></div><h1>RequestHelper.java</h1><pre class="source lang-java linenums">package com.revature.web;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.revature.dao.EmployeeDao;
+import com.revature.dao.ReimbursementDao;
+import com.revature.enums.ReimbType;
+import com.revature.enums.Role;
+import com.revature.enums.Status;
+import com.revature.models.Employee;
+import com.revature.models.ReimbResponseJSON;
+import com.revature.models.ReimbResponseJSON_Mngr;
+import com.revature.models.Reimbursement;
+import com.revature.service.EmployeeService;
+import com.revature.service.ManagerService;
+import com.revature.service.ReimbursementService;
+
+<span class="nc" id="L36">public class RequestHelper {</span>
+
+	// employeeservice
+<span class="nc" id="L39">	private static EmployeeService eserv = new EmployeeService(new EmployeeDao());</span>
+<span class="nc" id="L40">	private static ReimbursementService rserv = new ReimbursementService(new ReimbursementDao());</span>
+<span class="nc" id="L41">	private static ManagerService mserv = new ManagerService(new EmployeeDao(), new ReimbursementDao());</span>
+	// object mapper (for frontend)
+<span class="nc" id="L43">	private static ObjectMapper om = new ObjectMapper();</span>
+
+	// reuserable strings
+<span class="nc" id="L46">	private static String htmlPage = &quot;text/html&quot;;</span>
+<span class="nc" id="L47">	private static String currentUser = &quot;the-user&quot;;</span>
+<span class="nc" id="L48">	private static String notApplicable = &quot;N/A&quot;;</span>
+
+<span class="nc" id="L50">	private static SimpleDateFormat dateFormatter = new SimpleDateFormat(&quot;MM/dd/yyyy&quot;);</span>
+
+	private static void setResponseJSON(HttpServletResponse response) {
+<span class="nc" id="L53">		response.setContentType(&quot;application/json&quot;);</span>
+<span class="nc" id="L54">		response.addHeader(&quot;Access-Control-Allow-Origin&quot;, &quot;*&quot;);</span>
+<span class="nc" id="L55">	}</span>
+
+	/**
+	 * What does this method do?
+	 * 
+	 * It extracts the parameters from a request (username and password) from the UI
+	 * It will call the confirmLogin() method from the EmployeeService and see if a
+	 * user with that username and password exists
+	 * 
+	 * Who will provide the method with the HttpRequest? The UI We need to build an
+	 * html doc with a form that will send these prameters to the method
+	 */
+	public static void processRegistration(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+<span class="nc" id="L69">		String firstname = request.getParameter(&quot;firstname&quot;);</span>
+<span class="nc" id="L70">		String lastname = request.getParameter(&quot;lastname&quot;);</span>
+<span class="nc" id="L71">		String username = request.getParameter(&quot;username&quot;);</span>
+<span class="nc" id="L72">		String password = request.getParameter(&quot;password&quot;);</span>
+
+<span class="nc" id="L74">		String email = request.getParameter(&quot;email&quot;);</span>
+<span class="nc" id="L75">		Employee e = new Employee(firstname, lastname, username, password, email, Role.Employee);</span>
+
+<span class="nc" id="L77">		int pk = eserv.register(e);</span>
+
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		if (pk &gt; 0) {</span>
+
+<span class="nc" id="L81">			HttpSession session = request.getSession();</span>
+<span class="nc" id="L82">			session.setAttribute(currentUser, e);</span>
+<span class="nc" id="L83">			request.getRequestDispatcher(&quot;welcome.html&quot;).forward(request, response);</span>
+<span class="nc" id="L84">		} else {</span>
+
+<span class="nc" id="L86">			PrintWriter out = response.getWriter();</span>
+<span class="nc" id="L87">			response.setContentType(htmlPage);</span>
+<span class="nc" id="L88">			out.println(&quot;&lt;h1&gt;Registration failed. User already exists&lt;/h1&gt;&quot;);</span>
+<span class="nc" id="L89">			out.println(&quot;&lt;a href=\&quot;index.html\&quot;&gt;Back&lt;/a&gt;&quot;);</span>
+		}
+
+<span class="nc" id="L92">	}</span>
+
+	public static void processLogin(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+
+		// 1. Extract the parameters from the request (username &amp; password)
+<span class="nc" id="L98">		String username = request.getParameter(&quot;username&quot;);</span>
+<span class="nc" id="L99">		String password = request.getParameter(&quot;password&quot;); // use fn + arrow key &lt; or &gt; to get to the beginning or end</span>
+															// of a line of code
+		// use ctrl + arrow key to go from word to word
+
+		// 2. call the confirm login(0 method from the employeeService and see what it
+		// returns
+<span class="nc" id="L105">		Employee e = eserv.confirmLogin(username, password);</span>
+<span class="nc" id="L106">		PrintWriter out = response.getWriter();</span>
+		// 3. If the user exists, lets print their info to the screen
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		if (e.getId() &gt; 0) {</span>
+
+			// grab the session
+<span class="nc" id="L111">			HttpSession session = request.getSession();</span>
+
+			// add the user to the session
+<span class="nc" id="L114">			session.setAttribute(currentUser, e);</span>
+
+			// alternatively you can redirect to another resource instead of printing out
+			// dynamically
+<span class="nc bnc" id="L118" title="All 2 branches missed.">			if (e.getRole() == Role.Employee) {</span>
+<span class="nc" id="L119">				request.getRequestDispatcher(&quot;welcome.html&quot;).forward(request, response);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">			} else if (e.getRole() == Role.Manager) {</span>
+<span class="nc" id="L121">				request.getRequestDispatcher(&quot;manager-home.html&quot;).forward(request, response);</span>
+			}
+<span class="nc" id="L123">		} else {</span>
+
+<span class="nc" id="L125">			response.setContentType(htmlPage);</span>
+<span class="nc" id="L126">			out.println(&quot;No user found, sorry&quot;);</span>
+<span class="nc" id="L127">			out.println(&quot;&lt;a href=\&quot;index.html\&quot;&gt;Back&lt;/a&gt;&quot;);</span>
+
+			// Shout out to Gavin for figuring this out -- 204 doesn't return a response
+			// body
+//			response.setStatus(204); // 204 meants successful connection to the server, but no content found
+		}
+
+<span class="nc" id="L134">	}</span>
+
+	public static void processEmployees(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+//		response.setContentType(&quot;application/json&quot;);
+<span class="nc" id="L139">		response.setContentType(htmlPage);</span>
+<span class="nc" id="L140">		List&lt;Employee&gt; emps = eserv.getAll();</span>
+<span class="nc" id="L141">		String jsonstring = om.writeValueAsString(emps);</span>
+<span class="nc" id="L142">		PrintWriter out = response.getWriter();</span>
+<span class="nc" id="L143">		out.write(jsonstring);</span>
+
+<span class="nc" id="L145">	}</span>
+
+	public static void processReimbursementRequest(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+<span class="nc" id="L149">		setResponseJSON(response);</span>
+
+<span class="nc" id="L151">		System.out.println(&quot;in the processReimbursementRequest method within request helper&quot;);</span>
+
+		/**
+		 * We're using GSON here because it's easier to use for parsing a payload.
+		 */
+<span class="nc" id="L156">		Gson gson = new Gson();</span>
+<span class="nc" id="L157">		gson = new GsonBuilder().create();</span>
+
+<span class="nc" id="L159">		JsonParser jsonParser = new JsonParser();</span>
+		// parse the payload of the HTTP request
+<span class="nc" id="L161">		JsonElement root = jsonParser.parse(new InputStreamReader((InputStream) request.getInputStream()));</span>
+		// Transform payload string to json object
+<span class="nc" id="L163">		JsonObject rootobj = root.getAsJsonObject();</span>
+
+<span class="nc" id="L165">		System.out.println(rootobj);</span>
+
+		// extract properties of JSON object
+<span class="nc" id="L168">		double amount = rootobj.get(&quot;amount&quot;).getAsDouble();</span>
+<span class="nc" id="L169">		String typeString = rootobj.get(&quot;type&quot;).getAsString();</span>
+<span class="nc" id="L170">		String description = rootobj.get(&quot;description&quot;).getAsString();</span>
+<span class="nc" id="L171">		ReimbType type = null;</span>
+<span class="nc" id="L172">		System.out.println(typeString);</span>
+
+<span class="nc" id="L174">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L175">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+<span class="nc" id="L176">		int authorId = user.getId();</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">		if (typeString.equals(&quot;Food&quot;)) {</span>
+<span class="nc" id="L178">			type = ReimbType.Food;</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		} else if (typeString.equals(&quot;Travel&quot;)) {</span>
+<span class="nc" id="L180">			type = ReimbType.Travel;</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">		} else if (typeString.equals(&quot;Supplies&quot;)) {</span>
+<span class="nc" id="L182">			type = ReimbType.Supplies;</span>
+		}
+
+<span class="nc" id="L185">		Reimbursement newRequest = new Reimbursement(amount, description, authorId, type);</span>
+
+		// persist the new request
+<span class="nc" id="L188">		int pk = rserv.insert(newRequest);</span>
+<span class="nc" id="L189">		PrintWriter pw = response.getWriter();</span>
+
+<span class="nc bnc" id="L191" title="All 2 branches missed.">		if (pk &gt; 0) {</span>
+			// return the request movie object to the client
+<span class="nc" id="L193">			String json = gson.toJson(newRequest); // this is what we would use Jackson Object Mapper for</span>
+<span class="nc" id="L194">			pw.write(json);</span>
+<span class="nc" id="L195">		} else {</span>
+<span class="nc" id="L196">			String json = gson.toJson(new Reimbursement());</span>
+		}
+
+<span class="nc" id="L199">	}</span>
+
+	public static void findEmployeesReimbursements(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+		// get current user
+<span class="nc" id="L204">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L205">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+
+<span class="nc" id="L207">		setResponseJSON(response);</span>
+
+<span class="nc" id="L209">		List&lt;Reimbursement&gt; hirbernateReimbs = rserv.getbyAuthorId(user.getId());</span>
+<span class="nc" id="L210">		List&lt;Employee&gt; employees = eserv.getAll();</span>
+
+<span class="nc" id="L212">		List&lt;ReimbResponseJSON&gt; reimbs = new LinkedList&lt;ReimbResponseJSON&gt;();</span>
+
+<span class="nc bnc" id="L214" title="All 2 branches missed.">		for (Reimbursement r : hirbernateReimbs) {</span>
+
+<span class="nc" id="L216">			ReimbResponseJSON tempReimb = new ReimbResponseJSON();</span>
+<span class="nc" id="L217">			tempReimb.setId(r.getId());</span>
+<span class="nc" id="L218">			tempReimb.setAmount(r.getAmount());</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">			if (r.getDate_submitted() != null) {</span>
+<span class="nc" id="L220">				tempReimb.setDateSubmitted(dateFormatter.format(r.getDate_submitted()));</span>
+			} else {
+<span class="nc" id="L222">				tempReimb.setDateSubmitted(notApplicable);</span>
+			}
+<span class="nc bnc" id="L224" title="All 2 branches missed.">			if (r.getDate_resolved() != null) {</span>
+<span class="nc" id="L225">				tempReimb.setDateResolved(dateFormatter.format(r.getDate_resolved()));</span>
+			} else {
+<span class="nc" id="L227">				tempReimb.setDateResolved(notApplicable);</span>
+			}
+<span class="nc" id="L229">			tempReimb.setDescription(r.getDescription());</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">			tempReimb.setAuthorUsername(employees.stream().filter(e -&gt; e.getId() == r.getAuthorId())</span>
+<span class="nc" id="L231">					.map(Employee::getUsername).collect(Collectors.toList()).get(0));</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">			if (r.getResolverId() &gt; 0) {</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">				tempReimb.setResolverUsername(employees.stream().filter(e -&gt; e.getId() == r.getResolverId())</span>
+<span class="nc" id="L234">						.map(Employee::getUsername).collect(Collectors.toList()).get(0));</span>
+			} else {
+<span class="nc" id="L236">				tempReimb.setResolverUsername(notApplicable);</span>
+			}
+<span class="nc" id="L238">			tempReimb.setStatus(r.getStatus());</span>
+<span class="nc" id="L239">			tempReimb.setType(r.getType());</span>
+
+<span class="nc" id="L241">			reimbs.add(tempReimb);</span>
+
+<span class="nc" id="L243">		}</span>
+<span class="nc" id="L244">		System.out.println(reimbs.get(0));</span>
+<span class="nc" id="L245">		String jsonString = om.writeValueAsString(reimbs);</span>
+<span class="nc" id="L246">		PrintWriter out = response.getWriter();</span>
+<span class="nc" id="L247">		out.write(jsonString);</span>
+<span class="nc" id="L248">	}</span>
+
+	public static void getUserFromSession(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
+<span class="nc" id="L252">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L253">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+<span class="nc" id="L254">		String jsonString = om.writeValueAsString(user);</span>
+<span class="nc" id="L255">		PrintWriter out = response.getWriter();</span>
+<span class="nc" id="L256">		out.write(jsonString);</span>
+<span class="nc" id="L257">	}</span>
+
+	public static void updateUserInfo(HttpServletRequest request, HttpServletResponse response) throws IOException {
+<span class="nc" id="L260">		setResponseJSON(response);</span>
+
+<span class="nc" id="L262">		System.out.println(&quot;in the updateUserInfo method within request helper&quot;);</span>
+
+<span class="nc" id="L264">		JsonParser jsonParser = new JsonParser();</span>
+		// parse the payload of the HTTP request
+<span class="nc" id="L266">		JsonElement root = jsonParser.parse(new InputStreamReader(request.getInputStream()));</span>
+		// Transform payload string to json object
+<span class="nc" id="L268">		JsonObject rootobj = root.getAsJsonObject();</span>
+
+<span class="nc" id="L270">		System.out.println(rootobj);</span>
+
+		// extract properties of JSON object
+<span class="nc" id="L273">		String username = rootobj.get(&quot;username&quot;).getAsString();</span>
+<span class="nc" id="L274">		String firstName = rootobj.get(&quot;firstName&quot;).getAsString();</span>
+<span class="nc" id="L275">		String lastName = rootobj.get(&quot;lastName&quot;).getAsString();</span>
+<span class="nc" id="L276">		String password = rootobj.get(&quot;password&quot;).getAsString();</span>
+<span class="nc" id="L277">		String email = rootobj.get(&quot;email&quot;).getAsString();</span>
+
+		// get the session employee
+<span class="nc" id="L280">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L281">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+
+		// set values to update
+<span class="nc" id="L284">		user.setUsername(username);</span>
+<span class="nc" id="L285">		user.setFirstName(firstName);</span>
+<span class="nc" id="L286">		user.setLastName(lastName);</span>
+<span class="nc" id="L287">		user.setPassword(password);</span>
+<span class="nc" id="L288">		user.setEmail(email);</span>
+
+		// persist the changes and set the updated employee as the session user
+<span class="nc" id="L291">		eserv.updateInfo(user);</span>
+<span class="nc" id="L292">		session.setAttribute(currentUser, user);</span>
+<span class="nc" id="L293">	}</span>
+
+	public static void processLogout(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
+<span class="nc" id="L297">		HttpSession session = request.getSession();</span>
+		try {
+<span class="nc" id="L299">			session.invalidate();</span>
+<span class="nc" id="L300">		} catch (IllegalStateException e) {</span>
+<span class="nc" id="L301">			e.printStackTrace();</span>
+		} finally {
+<span class="nc" id="L303">			request.getRequestDispatcher(&quot;index.html&quot;).forward(request, response);</span>
+		}
+
+<span class="nc" id="L306">	}</span>
+
+	public static void updateRembsStatus(HttpServletRequest request, HttpServletResponse response) throws IOException {
+<span class="nc" id="L309">		setResponseJSON(response);</span>
+
+<span class="nc" id="L311">		System.out.println(&quot;in the updateRembsStatus method within request helper&quot;);</span>
+
+<span class="nc" id="L313">		JsonParser jsonParser = new JsonParser();</span>
+		// parse the payload of the HTTP request
+<span class="nc" id="L315">		JsonElement root = jsonParser.parse(new InputStreamReader(request.getInputStream()));</span>
+		// Transform payload string to json object
+<span class="nc" id="L317">		JsonObject rootobj = root.getAsJsonObject();</span>
+
+<span class="nc" id="L319">		System.out.println(rootobj);</span>
+
+		// extract properties of JSON object
+		
+<span class="nc" id="L323">		String decision_input = rootobj.get(&quot;decision&quot;).getAsString();</span>
+<span class="nc" id="L324">		int id = rootobj.get(&quot;id&quot;).getAsInt();</span>
+	
+<span class="nc" id="L326">		String email = rootobj.get(&quot;email&quot;).getAsString();</span>
+<span class="nc" id="L327">		Status decision = null;</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (decision_input.toString().equals(&quot;approve&quot;) ) {</span>
+<span class="nc" id="L329">			decision = Status.Approved;</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">		} else if (decision_input.toString().equals(&quot;deny&quot;)){</span>
+<span class="nc" id="L331">			decision = Status.Denied;</span>
+		}
+	
+
+		// get the session employee
+		
+<span class="nc" id="L337">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L338">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+
+		// set values to update
+//		user.setUsername(username);
+	
+<span class="nc" id="L343">		System.out.println( user.getUsername()+ &quot; &quot; + user.getId());</span>
+		
+		// persist the changes and set the updated employee as the session user
+<span class="nc" id="L346">		mserv.updateReimbursementStatus(id, user.getId(),decision,email);</span>
+<span class="nc" id="L347">		session.setAttribute(currentUser, user);</span>
+<span class="nc" id="L348">	}</span>
+	
+
+	public static void getEmployeesReimbursements(HttpServletRequest request, HttpServletResponse response,List&lt;Reimbursement&gt; reimbList)
+			throws IOException, ServletException{
+		// get current user
+<span class="nc" id="L354">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L355">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+		
+<span class="nc" id="L357">		setResponseJSON(response);</span>
+		
+<span class="nc" id="L359">		List&lt;Reimbursement&gt; hirbernateReimbs = reimbList;</span>
+<span class="nc" id="L360">		List&lt;Employee&gt; employees = eserv.getAll();</span>
+
+<span class="nc" id="L362">		List&lt;ReimbResponseJSON_Mngr&gt; reimbs = new LinkedList&lt;ReimbResponseJSON_Mngr&gt;();</span>
+		
+<span class="nc bnc" id="L364" title="All 2 branches missed.">		for (Reimbursement r : hirbernateReimbs) {</span>
+
+<span class="nc" id="L366">			ReimbResponseJSON_Mngr tempReimb = new ReimbResponseJSON_Mngr();</span>
+<span class="nc" id="L367">			tempReimb.setId(r.getId());</span>
+<span class="nc" id="L368">			tempReimb.setAmount(r.getAmount());</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">			if (r.getDate_submitted() != null) {</span>
+<span class="nc" id="L370">				tempReimb.setDateSubmitted(dateFormatter.format(r.getDate_submitted()));</span>
+			} else {
+<span class="nc" id="L372">				tempReimb.setDateSubmitted(notApplicable);</span>
+			}
+<span class="nc bnc" id="L374" title="All 2 branches missed.">			if (r.getDate_resolved() != null) {</span>
+<span class="nc" id="L375">				tempReimb.setDateResolved(dateFormatter.format(r.getDate_resolved()));</span>
+			} else {
+<span class="nc" id="L377">				tempReimb.setDateResolved(notApplicable);</span>
+			}
+<span class="nc" id="L379">			tempReimb.setDescription(r.getDescription());</span>
+<span class="nc bnc" id="L380" title="All 4 branches missed.">			if(employees.stream().filter(e -&gt; e.getId() == r.getAuthorId()).findFirst().isPresent()) {</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">				tempReimb.setAuthorUsername(employees.stream().filter(e -&gt; e.getId() == r.getAuthorId())</span>
+<span class="nc" id="L382">						.map(Employee::getUsername).collect(Collectors.toList()).get(0));</span>
+				
+			}
+		
+<span class="nc bnc" id="L386" title="All 2 branches missed.">			if (r.getResolverId() &gt; 0) {</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">				tempReimb.setResolverUsername(employees.stream().filter(e -&gt; e.getId() == r.getResolverId())</span>
+<span class="nc" id="L388">						.map(Employee::getUsername).collect(Collectors.toList()).get(0));</span>
+			} else {
+<span class="nc" id="L390">				tempReimb.setResolverUsername(notApplicable);</span>
+			}
+<span class="nc" id="L392">			tempReimb.setStatus(r.getStatus());</span>
+<span class="nc" id="L393">			tempReimb.setType(r.getType());</span>
+<span class="nc" id="L394">			tempReimb.setAuthorId(r.getAuthorId());</span>
+<span class="nc bnc" id="L395" title="All 4 branches missed.">			if(employees.stream().filter(e -&gt; e.getId() == r.getAuthorId()).findFirst().isPresent()) {</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">			tempReimb.setEmail(employees.stream().filter(e -&gt; e.getId() == r.getAuthorId())</span>
+<span class="nc" id="L397">					.map(Employee::getEmail).collect(Collectors.toList()).get(0));</span>
+			}
+<span class="nc" id="L399">			reimbs.add(tempReimb);</span>
+
+<span class="nc" id="L401">		}</span>
+<span class="nc" id="L402">		session.setAttribute(currentUser, user);</span>
+<span class="nc" id="L403">		System.out.println(reimbs.get(0));</span>
+<span class="nc" id="L404">		String jsonString = om.writeValueAsString(reimbs);</span>
+<span class="nc" id="L405">		PrintWriter out = response.getWriter();</span>
+<span class="nc" id="L406">		out.write(jsonString);</span>
+		
+		
+<span class="nc" id="L409">	}</span>
+	public static void findEmployeesReimbursementsMngr(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+		
+<span class="nc" id="L413">		getEmployeesReimbursements( request,  response,rserv.getAll());</span>
+//		getEmployeesReimbursements( request,  response,mserv.getAllEmployeesPendingReimbursementRequest());	
+		
+		
+<span class="nc" id="L417">	}</span>
+	public static void findEmployeesPendingReimbursementsMngr(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+<span class="nc" id="L420">			getEmployeesReimbursements( request,  response,mserv.getAllEmployeesPendingReimbursementRequest());</span>
+		
+<span class="nc" id="L422">	}</span>
+	public static void findEmployeesResolvedReimbursementsMngr(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException {
+<span class="nc" id="L425">		getEmployeesReimbursements( request,  response,mserv.getAllEmployeeResolvedReimbursementRequest());</span>
+		
+<span class="nc" id="L427">	}</span>
+	public static void getAllEmp(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ServletException{
+		// get current user
+<span class="nc" id="L431">		HttpSession session = request.getSession();</span>
+<span class="nc" id="L432">		Employee user = (Employee) session.getAttribute(currentUser);</span>
+		
+<span class="nc" id="L434">		setResponseJSON(response);</span>
+		
+		
+<span class="nc" id="L437">		List&lt;Employee&gt; employees = eserv.getAll();</span>
+
+		
+		
+		
+<span class="nc" id="L442">		session.setAttribute(currentUser, user);</span>
+		
+<span class="nc" id="L444">		String jsonString = om.writeValueAsString(employees);</span>
+<span class="nc" id="L445">		PrintWriter out = response.getWriter();</span>
+<span class="nc" id="L446">		out.write(jsonString);</span>
+		
+		
+<span class="nc" id="L449">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
