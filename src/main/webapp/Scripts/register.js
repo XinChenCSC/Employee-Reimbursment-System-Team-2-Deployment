@@ -19,7 +19,7 @@ function register() {
             },
         }).then(r => {
             if (r.status >= 200 && r.status < 300) {
-                location.href = "http://localhost/employee-servlet-app/welcome.html"
+                location.href = "http://" + window.location.hostname + "/employee-servlet-app/welcome.html"
             } else {
                 message.innerHTML = "registration failed";
             }
