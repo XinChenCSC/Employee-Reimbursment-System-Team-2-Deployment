@@ -124,7 +124,7 @@
     let hostname = window.location.hostname;
     $(document).ready(function() {
       $.ajax({
-        url:`http://${hostname}:8080/employee-servlet-app/find-requests`,
+        url:`http://${hostname}/employee-servlet-app/find-requests`,
         method: 'post',
         success: function(data) {
 
